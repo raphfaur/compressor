@@ -10,6 +10,7 @@
 #include<cmath>
 #include "serializer.hpp"
 #include "transformer.hpp"
+#include "../profiling/utils.hpp"
 
 template <typename T>
 class Compressor : public Transformer<T> {
@@ -37,12 +38,12 @@ public:
 
 template<typename T>
 void Compressor<T>::run(){
-    __compute_frequency();
-    __compute_tree();
-    __compute_segments();
-    __write_early_segments();
-    __compute_dict();
-    __write();
+    PROFILE(__compute_frequency())
+    PROFILE(__compute_tree())
+    PROFILE(__compute_segments())
+    PROFILE(__write_early_segments())
+    PROFILE(__compute_dict())
+    PROFILE(__write())
 }
 
 template<typename T>

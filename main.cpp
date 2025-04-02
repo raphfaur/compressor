@@ -5,7 +5,6 @@
 #include <memory>
 #include <unistd.h>
 
-
 int main(int argc, char *argv[])
 {
     bool decompress = false;
@@ -30,13 +29,12 @@ int main(int argc, char *argv[])
 
     auto input = static_cast<std::basic_istream<char> *>(new std::ifstream(infile));
     auto output = static_cast<std::basic_ostream<char> *>(new std::ofstream(outfile, std::ios::binary));
+
     if(decompress){
-        std::cout << "Decompressing" << std::endl;
         auto a = Inflator<char>(std::shared_ptr<std::basic_istream<char>>(input));
         a.set_output(std::shared_ptr<std::basic_ostream<char>>(output));
         a.run();
     } else {
-        std::cout << "Compressing" << std::endl;
         auto c = Compressor<char>(std::shared_ptr<std::basic_istream<char>>(input));
         c.set_output(std::shared_ptr<std::basic_ostream<char>>(output));
         c.run();
