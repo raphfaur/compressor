@@ -6,11 +6,30 @@
 #include<string>
 #include<algorithm>
 #include<numeric>
+#include<cassert>
 #include "../tree/tree.h"
 #include<cmath>
 #include "serializer.hpp"
 #include "transformer.hpp"
 #include "../profiling/utils.hpp"
+#include "../computing/worker.h"
+
+
+template <typename T, size_t size>
+void compute_chunk(int n, std::shared_ptr<char[]> data, std::array<std::atomic<int>, size> * lock_free_array){
+    std::array<int, size> tmp_array = {0};
+
+    auto begin = (std::make_unsigned_t<T> *) data.get();
+
+    std::for_each_n(begin, n, [&tmp_array](const std::make_unsigned_t<T> c) {
+        tmp_array[c]+=1;
+    });
+
+    for(int i = 0; i < tmp_array.size(); i ++) {
+        (*lock_free_array)[i].fetch_add(tmp_array[i], std::memory_order_relaxed);
+    }
+}
+
 
 template <typename T>
 class Compressor : public Transformer<T> {
@@ -48,11 +67,32 @@ void Compressor<T>::run(){
 
 template<typename T>
 void Compressor<T>::__compute_frequency(){
-    T c;
-    while (istream->peek() != EOF) {
-        c = istream->get();
-        frequency[c]++; 
+
+    int CHUNK_SIZE = 1000000;
+
+    LoadDispatcher<char> dispatcher(0, CHUNK_SIZE);
+
+    assert(std::atomic_int::is_always_lock_free);
+    
+    std::array<std::atomic<int>, UCHAR_MAX + 1> free_array = {0};
+
+    while (!istream->eof()) {
+        auto worker = dispatcher.request_worker();
+        auto buffer = reinterpret_cast<char*>(worker->get_buffer().get());
+        istream->read(buffer, CHUNK_SIZE);
+        auto n = istream->gcount();
+        auto data = worker->get_buffer();
+        worker->run(compute_chunk<char, UCHAR_MAX + 1>, n, data, &free_array);
+    };
+
+    dispatcher.join();
+    INFO(free_array['1']);
+    istream->clear();
+
+    for (auto i = 0; i < free_array.size(); i++) {
+        if (free_array[i].load()) this->frequency[i] = free_array[i].load();
     }
+    
 }
 
 template<typename T>
