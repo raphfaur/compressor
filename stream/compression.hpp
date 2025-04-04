@@ -14,6 +14,7 @@
 #include "../profiling/utils.hpp"
 #include "../computing/worker.h"
 
+#define PARALLELIZATION
 
 template <typename T, size_t size>
 void compute_chunk(int n, std::shared_ptr<char[]> data, std::array<std::atomic<int>, size> * lock_free_array){
@@ -67,6 +68,7 @@ void Compressor<T>::run(){
 
 template<typename T>
 void Compressor<T>::__compute_frequency(){
+    #ifdef PARALLELIZATION
 
     int CHUNK_SIZE = 1000000;
 
@@ -86,12 +88,27 @@ void Compressor<T>::__compute_frequency(){
     };
 
     dispatcher.join();
-    INFO(free_array['1']);
-    istream->clear();
 
     for (auto i = 0; i < free_array.size(); i++) {
         if (free_array[i].load()) this->frequency[i] = free_array[i].load();
     }
+
+    #else
+
+    T c;
+    size_t n = 100000;
+    auto buffer = std::make_unique<char[]>(n);
+    while ( !istream->eof() ) {
+        istream->read(buffer.get(), n);
+        auto count = istream->gcount();
+        std::for_each_n(buffer.get(), count, [this](char& c ) {
+            this->frequency[c]++;
+        });
+    }
+
+    #endif
+
+    istream->clear();
     
 }
 
