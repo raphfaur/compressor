@@ -77,19 +77,21 @@ public:
       nodes[i].empty = false;
   }
 
-  static std::unique_ptr<TreeNode> inflate(std::vector<_TreeNode<T>>& nodes) {
+  static std::unique_ptr<TreeNode> inflate(std::vector<_TreeNode<T>> &nodes) {
     return _inflate(nodes, 0);
   }
 
-  static std::unique_ptr<TreeNode> _inflate(std::vector<_TreeNode<T>>& nodes,
+  static std::unique_ptr<TreeNode> _inflate(std::vector<_TreeNode<T>> &nodes,
                                             int i) {
-    
+
     auto _node = nodes[i];
     auto node = std::make_unique<TreeNode>(_node.value, 0, _node.empty);
     // Check if left child exists
-    if (2 * i+1 < nodes.size() ) node->left = std::move(_inflate(nodes, 2*i + 1));
+    if (2 * i + 1 < nodes.size())
+      node->left = std::move(_inflate(nodes, 2 * i + 1));
     // Check if right child exists
-    if (2 * (i+1) < nodes.size() ) node->right = std::move(_inflate(nodes, 2* (i + 1)));
+    if (2 * (i + 1) < nodes.size())
+      node->right = std::move(_inflate(nodes, 2 * (i + 1)));
 
     return node;
   }

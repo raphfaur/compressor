@@ -41,27 +41,25 @@ public:
 
   void __init(size_t buffer_s) { buffer = std::make_unique<Data[]>(buffer_s); }
 
-  void release() { 
-    DEBUG("Released worker : " << id );
+  void release() {
+    DEBUG("Released worker : " << id);
     std::unique_lock dispatcher_q_lock(*dispatcher_m);
     available_workers->push(id);
     dispatcher_cv->notify_one();
-}
+  }
 
-template<typename F, typename... Args>
-  void run(F f, Args... args) {
+  template <typename F, typename... Args> void run(F f, Args... args) {
     // Run callable
-    runner = std::thread( [this, f] (Args... args) {
-        f(args...);
-        release();
-    }, std::move(args)...);
+    runner = std::thread(
+        [this, f](Args... args) {
+          f(args...);
+          release();
+        },
+        args...);
   }
 
-  std::shared_ptr<Data[]> get_buffer() {
-    return buffer;
-  }
+  std::shared_ptr<Data[]> get_buffer() { return buffer; }
 };
-
 
 template <typename Data> class LoadDispatcher {
   using worker_id = typename Worker<Data>::worker_id;
@@ -92,12 +90,12 @@ public:
   }
 
   void join() {
-    INFO("Joining");
-    for(auto& worker : worker_pool) {
-        auto w = worker.second;
-        w->runner.join();
+    DEBUG("Joining");
+    for (auto &worker : worker_pool) {
+      auto w = worker.second;
+      w->runner.join();
     }
-    INFO("Joined");
+    DEBUG("Joined");
   }
 
   worker_id _pick_worker() {
@@ -114,7 +112,7 @@ public:
     DEBUG("Created worker - id = " << worker->id);
     worker->__init(buffer_size);
     worker_pool[id] = worker;
-    worker_n ++;
+    worker_n++;
     return id;
   }
 
@@ -128,23 +126,23 @@ public:
       id = _pick_worker();
       DEBUG("Picked worker : " << id);
     } else {
-        if (worker_n == max_worker_n) {
-            DEBUG("Max worker reached : waiting for worker to become available");
-            dispatcher_cv->wait(dispatcher_q_lock);
-            id = _pick_worker();
-            DEBUG("Picked worker : " << id);
+      if (worker_n == max_worker_n) {
+        DEBUG("Max worker reached : waiting for worker to become available");
+        dispatcher_cv->wait(dispatcher_q_lock);
+        id = _pick_worker();
+        DEBUG("Picked worker : " << id);
+      } else {
+        DEBUG("Waiting a bit for available worker to be released");
+        dispatcher_cv->wait_for(dispatcher_q_lock, time_before_new_worker);
+        if (available_workers->size()) {
+          DEBUG("Workder released : picking available worker");
+          id = _pick_worker();
+          DEBUG("Picked worker : " << id);
         } else {
-            DEBUG("Waiting a bit for available worker to be released");
-            dispatcher_cv->wait_for(dispatcher_q_lock, time_before_new_worker);
-            if (available_workers->size()) {
-                DEBUG("Workder released : picking available worker");
-                id = _pick_worker();
-                DEBUG("Picked worker : " << id);
-            } else {
-                DEBUG("Finally creating new worker");
-                id = _new_worker();
-            }
+          DEBUG("Finally creating new worker");
+          id = _new_worker();
         }
+      }
     }
     return worker_pool.at(id);
   }
